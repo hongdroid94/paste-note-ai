@@ -211,6 +211,26 @@
       display: inline-block;
       vertical-align: middle;
     }
+
+    /* 필터 버튼 스타일 */
+    .filter-button {
+      padding: 5px 10px;
+      margin-right: 5px;
+      background-color: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .filter-button:hover {
+      background-color: #e0e0e0;
+    }
+
+    .filter-button.active {
+      background-color: #3498db;
+      color: white;
+    }
   </style>
 </head>
 
@@ -225,7 +245,7 @@
       <span id="userName"></span>
     </div>
     <svg class="logo" width="40" height="40" viewBox="0 0 100 100">
-      <rect x="10" y="10" width="80" height="80" fill="#3498db" rx="10" ry="10"/>
+      <rect x="10" y="10" width="80" height="80" fill="#3498db" rx="10" ry="10" />
       <text x="50" y="70" font-family="Arial" font-size="60" fill="white" text-anchor="middle">AI</text>
     </svg>
     <h1>Paste Note AI</h1>
@@ -235,6 +255,7 @@
     <div id="result"></div>
 
     <h2>내 메모 목록</h2>
+    <div id="categoryFilters"></div>
     <div id="memoList"></div>
   </div>
 
@@ -244,6 +265,10 @@
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
     import { getDatabase, ref, push, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-functions.js";
+
+    // 전역 변수로 카테고리 집합 추가
+    let categories = new Set();
+    let activeFilter = null;
 
     // Firebase 설정
     const firebaseConfig = {
@@ -271,6 +296,8 @@
     const memoListDiv = document.getElementById('memoList');
 
     let currentUser = null;
+    // 전역 변수로 현재 메모 데이터 저장
+    let currentMemos = null;
 
     // 인증 상태 변경 감지
     onAuthStateChanged(auth, (user) => {
@@ -412,8 +439,50 @@ ${originalText}
 
       const memoRef = ref(database, 'memos/' + currentUser.uid);
       onValue(memoRef, (snapshot) => {
-        const data = snapshot.val();
-        displayMemos(data);
+        currentMemos = snapshot.val(); // 현재 메모 데이터 저장
+        categories.clear(); // 카테고리 집합 초기화
+        if (currentMemos) {
+          Object.values(currentMemos).forEach(memo => {
+            categories.add(memo.category);
+          });
+        }
+        updateCategoryFilters(); // 필터 버튼 업데이트
+        displayMemos(currentMemos); // 메모 목록 표시
+      });
+    }
+
+    // 카테고리 필터 버튼 업데이트 함수
+    function updateCategoryFilters() {
+      const filterContainer = document.getElementById('categoryFilters');
+      filterContainer.innerHTML = '';
+      categories.forEach(category => {
+        const button = document.createElement('button');
+        button.textContent = category;
+        button.className = 'filter-button';
+        button.onclick = () => filterMemos(category);
+        filterContainer.appendChild(button);
+      });
+    }
+
+    // 메모 필터링 함수    
+    function filterMemos(category) {
+      if (activeFilter === category) {
+        activeFilter = null;
+      } else {
+        activeFilter = category;
+      }
+      updateFilterButtonsUI();
+      displayMemos(currentMemos); // 현재 메모 데이터로 화면 갱신
+    }
+
+    // 필터 버튼 UI 업데이트
+    function updateFilterButtonsUI() {
+      document.querySelectorAll('.filter-button').forEach(button => {
+        if (button.textContent === activeFilter) {
+          button.classList.add('active');
+        } else {
+          button.classList.remove('active');
+        }
       });
     }
 
@@ -425,25 +494,28 @@ ${originalText}
       memoListDiv.innerHTML = '';
       if (memos) {
         Object.entries(memos).reverse().forEach(([key, memo]) => {
-          const memoItem = document.createElement('div');
-          memoItem.className = 'memo-item';
-          memoItem.dataset.memoId = key;
-          memoItem.innerHTML = `
-                        <div class="memo-actions">
-                            <button onclick="editMemo('${key}')">수정</button>
-                            <button onclick="deleteMemo('${key}')">삭제</button>
-                        </div>
-                        <h3>${memo.title}</h3>
-                        <p><strong>카테고리:</strong> ${memo.category}</p>
-                        <p><strong>요약:</strong> ${memo.summary}</p>
-                        <div class="original-text"><strong>원본 내용:</strong><br>${memo.originalText}</div>
-                        <p class="timestamp">작성일: ${new Date(memo.timestamp).toLocaleString()}</p>
-                    `;
-          memoListDiv.appendChild(memoItem);
+          if (!activeFilter || memo.category === activeFilter) {
+            const memoItem = document.createElement('div');
+            memoItem.className = 'memo-item';
+            memoItem.dataset.memoId = key;
+            memoItem.innerHTML = `
+                            <div class="memo-actions">
+                                <button onclick="editMemo('${key}')">수정</button>
+                                <button onclick="deleteMemo('${key}')">삭제</button>
+                            </div>
+                            <h3>${memo.title}</h3>
+                            <p><strong>카테고리:</strong> ${memo.category}</p>
+                            <p><strong>요약:</strong> ${memo.summary}</p>
+                            <div class="original-text"><strong>원본 내용:</strong><br>${memo.originalText}</div>
+                            <p class="timestamp">작성일: ${new Date(memo.timestamp).toLocaleString()}</p>
+                        `;
+            memoListDiv.appendChild(memoItem);
+          }
         });
       } else {
         memoListDiv.innerHTML = '<p>저장된 메모가 없습니다.</p>';
       }
+      updateFilterButtonsUI(); // 필터 버튼 UI 업데이트
     }
 
     // 메모 업데이트 함수
