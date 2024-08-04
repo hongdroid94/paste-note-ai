@@ -231,6 +231,53 @@
       background-color: #3498db;
       color: white;
     }
+
+    /* 로딩 스피너 스타일 */
+    .loader-container {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .loader {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #3498db;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* 알림 메시지 스타일 */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background-color: #2ecc71;
+      color: white;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      display: none;
+      z-index: 1000;
+    }
   </style>
 </head>
 
@@ -249,15 +296,22 @@
       <text x="50" y="70" font-family="Arial" font-size="60" fill="white" text-anchor="middle">AI</text>
     </svg>
     <h1>Paste Note AI</h1>
-    <h5>메모를 원하는 텍스트를 클립보드에 복사한 뒤 하단의 버튼을 클릭하면 AI가 빠르게 메모를 저장합니다!</h5>
+    <h4>메모를 원하는 텍스트를 클립보드에 복사한 뒤 하단의 버튼을 클릭하면 AI가 빠르게 메모를 요약하여 자동 정리를 해줍니다!</h4>
     <button id="pasteButton" disabled>클립보드 내용 붙여넣기 및 분석</button>
     <textarea id="memoText" placeholder="클립보드의 내용이 여기에 붙여넣어집니다" readonly></textarea>
-    <div id="result"></div>
 
     <h2>내 메모 목록</h2>
     <div id="categoryFilters"></div>
     <div id="memoList"></div>
   </div>
+
+  <!-- 로딩 스피너 컴포넌트 -->
+  <div class="loader-container" id="loaderContainer">
+    <div class="loader"></div>
+  </div>
+
+  <!-- 알림 메시지 컴포넌트 -->
+  <div class="notification" id="notification"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/13.0.1/markdown-it.min.js"></script>
   <script type="module">
@@ -269,6 +323,9 @@
     // 전역 변수로 카테고리 집합 추가
     let categories = new Set();
     let activeFilter = null;
+
+    const loaderContainer = document.getElementById('loaderContainer');
+    const notification = document.getElementById('notification');
 
     // Firebase 설정
     const firebaseConfig = {
@@ -317,6 +374,26 @@
         memoListDiv.innerHTML = '';
       }
     });
+
+    // 알림 표시 함수
+    function showNotification(message, duration = 3000) {
+      notification.textContent = message;
+      notification.style.display = 'block';
+      setTimeout(() => {
+        notification.style.display = 'none';
+      }, duration);
+    }
+
+
+    // 로딩 표시 함수
+    function showLoader() {
+      loaderContainer.style.display = 'flex';
+    }
+
+    // 로딩 숨김 함수
+    function hideLoader() {
+      loaderContainer.style.display = 'none';
+    }
 
     // 로그인 함수
     async function signIn() {
@@ -367,10 +444,13 @@
       try {
         const text = await navigator.clipboard.readText();
         memoText.value = text;
+        showLoader(); // 로딩 표시 시작
         await analyzeMemo(text);
       } catch (err) {
         console.error('붙여넣기 오류:', err);
         alert('클립보드 내용을 붙여넣는 중 오류가 발생했습니다.');
+      } finally {
+        hideLoader(); // 로딩 표시 종료
       }
     }
 
@@ -381,32 +461,18 @@
       }
 
       try {
+        showLoader(); // 로딩 표시 시작
         const analyzeText = httpsCallable(functions, 'analyzeText');
         const result = await analyzeText({ text });
         const analysis = result.data;
-        displayResults(analysis, text);
         await saveToDatabase(analysis, text);
+        showNotification('메모가 성공적으로 저장되었습니다!');
       } catch (error) {
         console.error('Error:', error);
         alert('분석 중 오류가 발생했습니다: ' + error.message);
+      } finally {
+        hideLoader(); // 로딩 표시 종료
       }
-    }
-
-    function displayResults(analysis, originalText) {
-      const md = window.markdownit();
-      const resultHtml = md.render(`
-# ${analysis.title}
-
-**카테고리:** ${analysis.category}
-
-**요약:** ${analysis.summary}
-
-## 원본 메모 내용:
-
-${originalText}
-            `);
-
-      document.getElementById('result').innerHTML = resultHtml;
     }
 
     async function saveToDatabase(analysis, originalText) {
@@ -426,7 +492,7 @@ ${originalText}
 
         await set(newMemoRef, safeAnalysis);
         console.log('메모가 성공적으로 저장되었습니다.');
-        fetchMemos(); // 메모 저장 후 목록 갱신
+        // fetchMemos() 호출 제거
       } catch (error) {
         console.error('데이터베이스 저장 오류:', error);
         alert('메모 저장 중 오류가 발생했습니다.');
@@ -594,6 +660,9 @@ ${originalText}
     window.updateMemo = updateMemo;
     window.deleteMemo = deleteMemo;
     window.cancelEdit = cancelEdit;
+
+    // 이벤트 리스너 등록 (기존 코드에 추가)
+    pasteButton.addEventListener('click', pasteAndAnalyze);
 
   </script>
 </body>
