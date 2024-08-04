@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paste Note AI</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+
+  <!-- Social Media Meta Tags -->
+  <meta property="og:title" content="Paste Note AI">
+  <meta property="og:description" content="AI-powered note-taking app for quick and efficient memo management">
+  <meta property="og:image" content="https://cdn.pixabay.com/photo/2017/08/05/22/43/sticky-2586309_1280.jpg">
+  <meta property="og:url" content="https://paste-note-ai.web.app">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f7fa;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .container {
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    h1,
+    h2 {
+      color: #2c3e50;
+      margin-bottom: 15px;
+      font-size: 1.5em;
+    }
+
+    #memoText {
+      width: 100%;
+      height: 150px;
+      margin-bottom: 15px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 10px;
+      font-size: 16px;
+      resize: vertical;
+    }
+
+    button {
+      padding: 10px 15px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s ease;
+      margin-bottom: 10px;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    button:disabled {
+      background-color: #bdc3c7;
+      cursor: not-allowed;
+    }
+
+    #result,
+    #memoList {
+      margin-top: 20px;
+    }
+
+    #userInfo {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+
+    #userInfo button {
+      margin-bottom: 10px;
+    }
+
+    .memo-item {
+      background-color: #f8f9fa;
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 15px;
+      position: relative;
+      transition: box-shadow 0.3s ease;
+    }
+
+    .memo-item:hover {
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .memo-item h3 {
+      margin-top: 0;
+      color: #2c3e50;
+      font-size: 1.2em;
+    }
+
+    .memo-item .original-text {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 14px;
+    }
+
+    .memo-item .timestamp {
+      font-size: 0.8em;
+      color: #7f8c8d;
+      margin-top: 10px;
+    }
+
+    .memo-actions {
+      margin-top: 10px;
+    }
+
+    .memo-actions button {
+      margin-right: 10px;
+      padding: 6px 12px;
+      font-size: 12px;
+      background-color: #ecf0f1;
+      color: #34495e;
+    }
+
+    .memo-actions button:hover {
+      background-color: #bdc3c7;
+    }
+
+    .edit-form {
+      margin-top: 15px;
+    }
+
+    .edit-form textarea {
+      width: 100%;
+      height: 120px;
+      margin-bottom: 10px;
+      padding: 8px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      font-size: 14px;
+      resize: vertical;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+
+      .container {
+        padding: 15px;
+      }
+
+      h1,
+      h2 {
+        font-size: 1.3em;
+      }
+
+      #memoText {
+        height: 120px;
+      }
+
+      button {
+        width: 100%;
+        margin-bottom: 10px;
+      }
+
+      .memo-actions {
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .memo-actions button {
+        flex: 1;
+        margin-right: 5px;
+      }
+
+      .memo-item {
+        padding: 10px;
+      }
+
+      .memo-item .original-text {
+        font-size: 12px;
+      }
+    }
+
+    /* 로고 스타일 추가 */
+    .logo {
+      display: inline-block;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+
+    h1 {
+      display: inline-block;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+
+
+<body>
+  <div class="container">
+    <div id="userInfo">
+      <div>
+        <button id="loginButton">Google로 로그인</button>
+        <button id="logoutButton" style="display: none;">로그아웃</button>
+      </div>
+      <span id="userName"></span>
+    </div>
+    <svg class="logo" width="40" height="40" viewBox="0 0 100 100">
+      <rect x="10" y="10" width="80" height="80" fill="#3498db" rx="10" ry="10"/>
+      <text x="50" y="70" font-family="Arial" font-size="60" fill="white" text-anchor="middle">AI</text>
+    </svg>
+    <h1>Paste Note AI</h1>
+    <h5>메모를 원하는 텍스트를 클립보드에 복사한 뒤 하단의 버튼을 클릭하면 AI가 빠르게 메모를 저장합니다!</h5>
+    <button id="pasteButton" disabled>클립보드 내용 붙여넣기 및 분석</button>
+    <textarea id="memoText" placeholder="클립보드의 내용이 여기에 붙여넣어집니다" readonly></textarea>
+    <div id="result"></div>
+
+    <h2>내 메모 목록</h2>
+    <div id="memoList"></div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/13.0.1/markdown-it.min.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
+    import { getDatabase, ref, push, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-functions.js";
+
+    // Firebase 설정
+    const firebaseConfig = {
+      apiKey: "AIzaSyArgmI-LdV3qp2BeSh1PooHn3HZevdTdF4",
+      authDomain: "paste-note-ai.firebaseapp.com",
+      databaseURL: "https://paste-note-ai-default-rtdb.firebaseio.com",
+      projectId: "paste-note-ai",
+      storageBucket: "paste-note-ai.appspot.com",
+      messagingSenderId: "1023827348105",
+      appId: "1:1023827348105:web:d266b8322d33b8ed1c5458",
+      measurementId: "G-E8WEX8EKRV"
+    };
+
+    // Firebase 초기화
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const database = getDatabase(app);
+    const functions = getFunctions(app);
+
+    const pasteButton = document.getElementById('pasteButton');
+    const memoText = document.getElementById('memoText');
+    const loginButton = document.getElementById('loginButton');
+    const logoutButton = document.getElementById('logoutButton');
+    const userNameSpan = document.getElementById('userName');
+    const memoListDiv = document.getElementById('memoList');
+
+    let currentUser = null;
+
+    // 인증 상태 변경 감지
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        currentUser = user;
+        loginButton.style.display = 'none';
+        logoutButton.style.display = 'inline-block';
+        userNameSpan.textContent = `환영합니다, ${user.displayName}님!`;
+        pasteButton.disabled = false;
+        fetchMemos();
+      } else {
+        currentUser = null;
+        loginButton.style.display = 'inline-block';
+        logoutButton.style.display = 'none';
+        userNameSpan.textContent = '';
+        pasteButton.disabled = true;
+        memoListDiv.innerHTML = '';
+      }
+    });
+
+    // 로그인 함수
+    async function signIn() {
+      const provider = new GoogleAuthProvider();
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (error) {
+        console.error("로그인 오류:", error);
+        alert("로그인 중 오류가 발생했습니다.");
+      }
+    }
+
+    // 로그아웃 함수
+    async function signOutUser() {
+      try {
+        await firebaseSignOut(auth);
+      } catch (error) {
+        console.error("로그아웃 오류:", error);
+        alert("로그아웃 중 오류가 발생했습니다.");
+      }
+    }
+
+    // 이벤트 리스너 등록
+    loginButton.addEventListener('click', signIn);
+    logoutButton.addEventListener('click', signOutUser);
+    pasteButton.addEventListener('click', pasteAndAnalyze);
+
+    // 클립보드 내용 감지
+    async function checkClipboard() {
+      if (!currentUser) return;
+      try {
+        const text = await navigator.clipboard.readText();
+        pasteButton.disabled = !text;
+      } catch (err) {
+        console.error('클립보드 접근 오류:', err);
+        pasteButton.disabled = true;
+      }
+    }
+
+    // 주기적으로 클립보드 확인
+    setInterval(checkClipboard, 1000);
+
+    async function pasteAndAnalyze() {
+      if (!currentUser) {
+        alert("먼저 로그인해주세요.");
+        return;
+      }
+      try {
+        const text = await navigator.clipboard.readText();
+        memoText.value = text;
+        await analyzeMemo(text);
+      } catch (err) {
+        console.error('붙여넣기 오류:', err);
+        alert('클립보드 내용을 붙여넣는 중 오류가 발생했습니다.');
+      }
+    }
+
+    async function analyzeMemo(text) {
+      if (!text) {
+        alert('분석할 텍스트가 없습니다.');
+        return;
+      }
+
+      try {
+        const analyzeText = httpsCallable(functions, 'analyzeText');
+        const result = await analyzeText({ text });
+        const analysis = result.data;
+        displayResults(analysis, text);
+        await saveToDatabase(analysis, text);
+      } catch (error) {
+        console.error('Error:', error);
+        alert('분석 중 오류가 발생했습니다: ' + error.message);
+      }
+    }
+
+    function displayResults(analysis, originalText) {
+      const md = window.markdownit();
+      const resultHtml = md.render(`
+# ${analysis.title}
+
+**카테고리:** ${analysis.category}
+
+**요약:** ${analysis.summary}
+
+## 원본 메모 내용:
+
+${originalText}
+            `);
+
+      document.getElementById('result').innerHTML = resultHtml;
+    }
+
+    async function saveToDatabase(analysis, originalText) {
+      if (!currentUser) return;
+
+      const memoRef = ref(database, 'memos/' + currentUser.uid);
+      const newMemoRef = push(memoRef);
+
+      try {
+        const safeAnalysis = {
+          title: analysis.title || '제목 없음',
+          category: analysis.category || '미분류',
+          summary: analysis.summary || '요약을 생성할 수 없습니다.',
+          originalText: originalText || '',
+          timestamp: Date.now()
+        };
+
+        await set(newMemoRef, safeAnalysis);
+        console.log('메모가 성공적으로 저장되었습니다.');
+        fetchMemos(); // 메모 저장 후 목록 갱신
+      } catch (error) {
+        console.error('데이터베이스 저장 오류:', error);
+        alert('메모 저장 중 오류가 발생했습니다.');
+      }
+    }
+
+    // 메모 목록 조회 함수
+    function fetchMemos() {
+      if (!currentUser) return;
+
+      const memoRef = ref(database, 'memos/' + currentUser.uid);
+      onValue(memoRef, (snapshot) => {
+        const data = snapshot.val();
+        displayMemos(data);
+      });
+    }
+
+    // 메모 목록 표시 함수
+    function displayMemos(memos) {
+      const memoListDiv = document.getElementById('memoList');
+      if (!memoListDiv) return;
+
+      memoListDiv.innerHTML = '';
+      if (memos) {
+        Object.entries(memos).reverse().forEach(([key, memo]) => {
+          const memoItem = document.createElement('div');
+          memoItem.className = 'memo-item';
+          memoItem.dataset.memoId = key;
+          memoItem.innerHTML = `
+                        <div class="memo-actions">
+                            <button onclick="editMemo('${key}')">수정</button>
+                            <button onclick="deleteMemo('${key}')">삭제</button>
+                        </div>
+                        <h3>${memo.title}</h3>
+                        <p><strong>카테고리:</strong> ${memo.category}</p>
+                        <p><strong>요약:</strong> ${memo.summary}</p>
+                        <div class="original-text"><strong>원본 내용:</strong><br>${memo.originalText}</div>
+                        <p class="timestamp">작성일: ${new Date(memo.timestamp).toLocaleString()}</p>
+                    `;
+          memoListDiv.appendChild(memoItem);
+        });
+      } else {
+        memoListDiv.innerHTML = '<p>저장된 메모가 없습니다.</p>';
+      }
+    }
+
+    // 메모 업데이트 함수
+    window.updateMemo = async function (memoId) {
+      const editedText = document.getElementById(`edit-text-${memoId}`).value;
+      const memoRef = ref(database, `memos/${currentUser.uid}/${memoId}`);
+
+      try {
+        const analyzeText = httpsCallable(functions, 'analyzeText');
+        const result = await analyzeText({ text: editedText });
+        const analysis = result.data;
+        await update(memoRef, {
+          title: analysis.title,
+          category: analysis.category,
+          summary: analysis.summary,
+          originalText: editedText,
+          timestamp: Date.now()
+        });
+        alert('메모가 성공적으로 업데이트되었습니다.');
+        fetchMemos(); // 메모 목록 갱신
+      } catch (error) {
+        console.error('메모 업데이트 오류:', error);
+        alert('메모 업데이트 중 오류가 발생했습니다.');
+      }
+    }
+
+    // 메모 삭제 함수
+    window.deleteMemo = function (memoId) {
+      if (confirm('정말로 이 메모를 삭제하시겠습니까?')) {
+        const memoRef = ref(database, `memos/${currentUser.uid}/${memoId}`);
+        remove(memoRef)
+          .then(() => {
+            alert('메모가 성공적으로 삭제되었습니다.');
+            fetchMemos(); // 메모 목록 갱신
+          })
+          .catch((error) => {
+            console.error('메모 삭제 오류:', error);
+            alert('메모 삭제 중 오류가 발생했습니다.');
+          });
+      }
+    }
+
+    // 메모 수정 취소 함수
+    window.cancelEdit = function (memoId) {
+      const editForm = document.getElementById(`edit-text-${memoId}`);
+      if (editForm) {
+        const memoItem = editForm.closest('.memo-item');
+        if (memoItem) {
+          const editFormContainer = memoItem.querySelector('.edit-form');
+          if (editFormContainer) {
+            editFormContainer.remove();
+          }
+        }
+      }
+    }
+
+
+    // 메모 수정 함수
+    window.editMemo = function (memoId) {
+      const memoItem = document.querySelector(`.memo-item[data-memo-id="${memoId}"]`);
+      if (memoItem) {
+        const originalText = memoItem.querySelector('.original-text').textContent.replace('원본 내용:', '').trim();
+        const editForm = document.createElement('div');
+        editForm.className = 'edit-form';
+        editForm.innerHTML = `
+          <textarea id="edit-text-${memoId}">${originalText}</textarea>
+          <button onclick="updateMemo('${memoId}')">저장</button>
+          <button onclick="cancelEdit('${memoId}')">취소</button>
+        `;
+        memoItem.appendChild(editForm);
+      }
+    }
+
+    // 글로벌 스코프에 함수 추가
+    window.editMemo = editMemo;
+    window.updateMemo = updateMemo;
+    window.deleteMemo = deleteMemo;
+    window.cancelEdit = cancelEdit;
+
+  </script>
+</body>
+
+</html>
